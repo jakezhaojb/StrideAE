@@ -1,1 +1,4 @@
-Convolution Auto-encoders with stride.
+ConvAE
+===
+
+Convolutional Autoencoder.
