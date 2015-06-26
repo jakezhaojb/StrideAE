@@ -5,45 +5,40 @@
 
 conv_autoencoder = function()
 
-   local pad1 = (filterSize - 1) / 2
+   local pad1 = (config.filterSize - 1) / 2
 
    local encoder = nn.Sequential()
-   encoder:add(nn.SpatialPadding(pad1, pad1, pad1, pad1, 3, 4))
-   encoder:add(cudnn.SpatialConvolution(nInplane, nOutplane, filterSize, filterSize))
+   encoder:add(cudnn.SpatialConvolution(nInplane, config.nOutplane, config.filterSize, config.filterSize, 1, 1, pad1, pad1))
    encoder:add(cudnn.ReLU())
 
    local decoder = nn.Sequential()
-   decoder:add(nn.SpatialPadding(pad1, pad1, pad1, pad1, 3, 4))
-   decoder:add(cudnn.NormSpatialConvolution(nOutplane, nInplane, filterSize, filterSize))
+   decoder:add(cudnn.NormSpatialConvolution(config.nOutplane, nInplane, config.filterSize, config.filterSize, 1, 1, pad1, pad1))
 
-   if paraTied then
-      decoder:get(2).weight = encoder:get(2).weight:transpose(1,2)
-      decoder:get(2).gradWeight = encoder:get(2).gradWeight:transpose(1,2)
-   end
-
-   if init_scale_down ~= nil then
+   if config.init_scale_down then
       print "==> scaling down the initialized weights."
-      decoder:get(2).weight:mul(init_scale_down)
+      decoder:get(1).weight:mul(config.init_scale_down)
    end
 
    -- Remark: no need to flip the weights
    local conv_ae = nn.Sequential()
    conv_ae:add(encoder)
+   -- POoling UNpoling
+   conv_ae:add(nn.SoftPooling2D({config.poolSize, config.poolSize}, config.poolBeta))
 
-   conv_ae:add(nn.MaxPoolUnpool(poolSize, poolSize))
-
-   conv_ae:add(nn.L1Penalty(l1weight))
+   local l1_container = nn.Sequential():add(nn.ParallelTable():add(nn.L1Penalty(config.l1weight, true)):add(nn.Identity()))
+   conv_ae:add(l1_container)
+   conv_ae:add(nn.SoftUnpooling2D({config.poolSize, config.poolSize}))
    conv_ae:add(decoder)
 
    local criterion = nn.MSECriterion()
-   criterion.sizeAverage = false
+   criterion.sizeAverage = true
 
    conv_ae:cuda()
    criterion:cuda()
 
    local weights = {}
-   weights = {enc = encoder:get(2).weight,
-              dec = decoder:get(2).weight}
+   weights = {enc = encoder:get(1).weight,
+              dec = decoder:get(1).weight}
 
    return conv_ae, criterion, weights
 end
