@@ -5,7 +5,6 @@ require 'cunn'
 require 'nnx'
 require 'xlua'
 require 'optim'
-require 'myaenn'
 dofile("./Modules/init.lua")
 gfx = require 'gfx.js'
 

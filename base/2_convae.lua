@@ -19,15 +19,13 @@ conv_autoencoder = function()
       decoder:get(1).weight:mul(config.init_scale_down)
    end
 
-   -- Remark: no need to flip the weights
    local conv_ae = nn.Sequential()
    conv_ae:add(encoder)
-   -- POoling UNpoling
-   conv_ae:add(nn.SoftPooling2D({config.poolSize, config.poolSize}, config.poolBeta))
 
-   local l1_container = nn.Sequential():add(nn.ParallelTable():add(nn.L1Penalty(config.l1weight, true)):add(nn.Identity()))
-   conv_ae:add(l1_container)
-   conv_ae:add(nn.SoftUnpooling2D({config.poolSize, config.poolSize}))
+   -- Using Upsampling MaxPooling and Unpooling
+   conv_ae:add(nn.MaxPoolUnpool(poolSize, poolSize))
+
+   conv_ae:add(nn.L1Penalty(l1weight, true))
    conv_ae:add(decoder)
 
    local criterion = nn.MSECriterion()
